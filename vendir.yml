@@ -1,0 +1,33 @@
+---
+apiVersion: vendir.k14s.io/v1alpha1
+kind: Config
+directories:
+  - path: licenses/mqvpn-0.18.0/upstream
+    contents:
+      - path: .
+        git:
+          url: https://github.com/mp0rta/mqvpn
+          ref: 14e98987b3d5cbdc25c114923db1114996f7aa1a
+          depth: 1
+          skipInitSubmodules: true
+        includePaths:
+          - LICENSE
+          - NOTICE
+          - third_party/wintun/LICENSE
+  - path: licenses/mqvpn-0.18.0/third-party
+    contents:
+      - path: xquic
+        http:
+          url: https://raw.githubusercontent.com/mp0rta/xquic/df145f3b411a69aa3fac188fe92c9d866f6cd23c/LICENSE
+          sha256: c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4
+          disableUnpack: true
+      - path: lwip
+        http:
+          url: https://raw.githubusercontent.com/mp0rta/heiher-lwip/821af1994c4dbaf1e2cba9a7c2207303b3e5327b/LICENSE
+          sha256: ef4aac92e05e87cd1cdc140870ed52206ba03d4a7fe46c1e11d7ffa6c87d252b
+          disableUnpack: true
+      - path: boringssl
+        http:
+          url: https://raw.githubusercontent.com/google/boringssl/0ce57bbf06a35864fa39e3b9346d41e833683383/LICENSE
+          sha256: 827c8d8fc207c2392794eef9e00fe246f9f61fdcc132556c275be3dd8c3cd97f
+          disableUnpack: true

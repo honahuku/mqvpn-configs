@@ -1,0 +1,19 @@
+apiVersion: vendir.k14s.io/v1alpha1
+directories:
+- contents:
+  - git:
+      commitTitle: 'chore(release): bump version to 0.18.0 (#410)'
+      sha: 14e98987b3d5cbdc25c114923db1114996f7aa1a
+      tags:
+      - v0.18.0
+    path: .
+  path: licenses/mqvpn-0.18.0/upstream
+- contents:
+  - http: {}
+    path: xquic
+  - http: {}
+    path: lwip
+  - http: {}
+    path: boringssl
+  path: licenses/mqvpn-0.18.0/third-party
+kind: LockConfig

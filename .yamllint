@@ -1,0 +1,6 @@
+extends: event-network-ansible/.yamllint
+rules:
+  indentation:
+    spaces: 2
+    # Keep vendir's generated lock formatting unchanged.
+    indent-sequences: consistent

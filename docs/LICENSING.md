@@ -12,22 +12,39 @@ mqvpnがApache-2.0であることだけを理由に、独立した設定一式�
 
 対象は[公式v0.18.0](https://github.com/mp0rta/mqvpn/releases/tag/v0.18.0)、対応するソースcommitは `14e98987b3d5cbdc25c114923db1114996f7aa1a` です。ローカルのdebは `mqvpn_0.18.0_amd64.deb`、SHA256は `eca43217805f1e26863c6c855c23fe1b245680129a4ed4b4a6b21ae2ed89fdd4` です。版とハッシュは [manifest.json](../event-network-ansible/artifacts/manifest.json) で固定します。
 
-次の文面は、そのdeb内の `/usr/share/doc/mqvpn/` から改変せず保存しています。
+次の文面は、`vendir.yml` で固定した上流commitから改変せず取得します。初回移行では、deb内の `/usr/share/doc/mqvpn/` に含まれる5文書とバイト単位で一致しています。
 
-表1: 固定debに含まれる権利表記
+表1: 固定debの権利表記に対応する上流文書
 
 | 対象 | ライセンス・保存先 |
 |---|---|
-| mqvpn | [Apache-2.0全文](../licenses/mqvpn-0.18.0/LICENSE)、[元のNOTICE](../licenses/mqvpn-0.18.0/NOTICE) |
-| xquic | [Apache-2.0全文](../licenses/mqvpn-0.18.0/third-party/xquic.txt) |
-| lwIP | [BSD-3-Clause・著作権表示](../licenses/mqvpn-0.18.0/third-party/lwip.txt) |
-| BoringSSL | [パッケージ同梱の複数のライセンス・著作権表示](../licenses/mqvpn-0.18.0/third-party/boringssl.txt) |
+| mqvpn | [Apache-2.0全文](../licenses/mqvpn-0.18.0/upstream/LICENSE)、[元のNOTICE](../licenses/mqvpn-0.18.0/upstream/NOTICE) |
+| xquic | [Apache-2.0全文](../licenses/mqvpn-0.18.0/third-party/xquic/LICENSE) |
+| lwIP | [BSD-3-Clause・著作権表示](../licenses/mqvpn-0.18.0/third-party/lwip/LICENSE) |
+| BoringSSL | [パッケージ同梱の複数のライセンス・著作権表示](../licenses/mqvpn-0.18.0/third-party/boringssl/LICENSE) |
 
 このdeb同梱のBoringSSL文書にはApache-2.0全文と、TLSテスト用サポートコードのGo BSDライセンスが収録されています。後者については、コンパイルされたlibcrypto・libsslには含まれず、リンク済みバイナリの配布ではそのライセンスは発動しない旨が文書に記載されています。ここでは文書を抜粋せず全文保持します。
 
-上流のNOTICEにはWindows用Wintunヘッダーへの言及もあります。NOTICEを削らず保存し、その参照先に対応する [WintunのMITライセンス](../licenses/mqvpn-0.18.0/third-party/wintun.txt) も上流v0.18.0の `third_party/wintun/LICENSE` から保存しています。Linuxの構築手順はWintunをインストールしません。これらの著作権表示の権利者は元の文面のままです。
+上流のNOTICEにはWindows用Wintunヘッダーへの言及もあります。NOTICEを削らず保存し、その参照先に対応する [WintunのMITライセンス](../licenses/mqvpn-0.18.0/upstream/third_party/wintun/LICENSE) も上流v0.18.0の `third_party/wintun/LICENSE` から保存しています。Linuxの構築手順はWintunをインストールしません。これらの著作権表示の権利者は元の文面のままです。
 
 mqvpnの実装ソースやバイナリはGitに含めず、取得スクリプトで公式debをダウンロードします。サーバーへはそのdebを改変せず導入し、パッケージのライセンス文書を削除しません。設定テンプレートの変更が上流のバイナリを改変することはありません。
+
+## vendirでの同期
+
+取得元はリポジトリ直下の [`vendir.yml`](../vendir.yml)、解決結果は [`vendir.lock.yml`](../vendir.lock.yml) で管理します。同期済みの `licenses/` もGitへ保存するため、利用者がPlaybookを実行するためにvendirは必要ありません。
+
+更新・再取得時は、リポジトリ直下で実行します（vendir 0.46.3で検証）。
+
+```sh
+vendir sync --locked
+git diff --exit-code -- vendir.lock.yml licenses
+```
+
+mqvpnのLICENSE・NOTICE・Wintunライセンスは、mqvpn 0.18.0の固定commitから必要なファイルだけを取得します。xquicとlwIPのcommitは同リリースのsubmodule参照、BoringSSLのcommitはそのxquicのsubmodule参照です。HTTP取得する3ファイルはURL内のcommitに加えてSHA256も固定します。HTTP取得のlock項目は空のため、ダイジェストの固定値は `vendir.yml` 側に置きます。
+
+同期対象ファイルは手編集しません。上流更新時は取得元commit・SHA256と対応するmqvpnパッケージを照合してから `vendir sync` を実行し、生成ファイルとlockの差分を一緒にコミットします。自身のプロジェクトに適用するルートの `LICENSE` は、この同期の対象外です。
+
+vendir本体も[Apache-2.0](https://github.com/carvel-dev/vendir/blob/develop/LICENSE)ですが、このリポジトリへ実装・実行ファイルを同梱しません。
 
 ## Ansible・OS・検査ツール
 

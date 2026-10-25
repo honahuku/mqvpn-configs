@@ -10,7 +10,9 @@ Copyright (c) 2026 mp0rta and mqvpn contributors
 Licensed under the Apache License, Version 2.0.
 
 The upstream mqvpn 0.18.0 NOTICE and license texts are preserved under
-licenses/mqvpn-0.18.0/. The configuration examples and service definitions
+licenses/mqvpn-0.18.0/upstream/. Third-party license texts are preserved in
+licenses/mqvpn-0.18.0/third-party/. These are synchronized with vendir using
+pinned upstream revisions. The configuration examples and service definitions
 were used as references for this deployment's templates, which have been
 adapted for the event network.
 
