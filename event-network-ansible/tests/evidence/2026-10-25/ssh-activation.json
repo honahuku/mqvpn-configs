@@ -1,0 +1,5 @@
+{
+  "prefix": "evssh-1792871537",
+  "passed": true,
+  "activation_recap": "*********************************************************************\ng3                         : ok=5    changed=3    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0"
+}

@@ -1,0 +1,98 @@
+{
+  "prefix": "evtest-1792870454",
+  "passed": true,
+  "checks": [
+    {
+      "test": "Debian 13 real server/gateway playbook apply",
+      "detail": "passed"
+    },
+    {
+      "test": "second apply is idempotent on both hosts",
+      "detail": "changed=0"
+    },
+    {
+      "test": "performer LAN and NAT-router guest LAN traverse real TLS-verified VPN",
+      "detail": "passed"
+    },
+    {
+      "test": "two active transport paths",
+      "detail": "server get_status reports two path IDs"
+    },
+    {
+      "test": "guest down shaping",
+      "detail": "{\"direction\": \"down\", \"seconds\": 18.306}"
+    },
+    {
+      "test": "guest up shaping",
+      "detail": "{\"direction\": \"up\", \"seconds\": 4.303}"
+    },
+    {
+      "test": "8Mbps guest egress cap under offered 30Mbps UDP load",
+      "detail": "7.731 Mbps received"
+    },
+    {
+      "test": "management services blocked from performer and guest clients",
+      "detail": "passed"
+    },
+    {
+      "test": "upstream management IP blocked for clients, reachable by gateway admin",
+      "detail": "passed"
+    },
+    {
+      "test": "IPv6 upstream management reachable by gateway, blocked from LAN",
+      "detail": "passed"
+    },
+    {
+      "test": "LAN DNS resolution through VPN",
+      "detail": "passed"
+    },
+    {
+      "test": "primary transport failure continues over second path",
+      "detail": "passed"
+    },
+    {
+      "test": "VPN stopped: no cellular bypass for either LAN or uncached DNS",
+      "detail": "passed"
+    },
+    {
+      "test": "tunnel recreation recovers routes and QoS automatically",
+      "detail": "passed"
+    },
+    {
+      "test": "AP mode DHCP offer and ACK",
+      "detail": "{\"address\": \"192.168.60.180\", \"router\": \"192.168.60.1\", \"dns\": \"192.168.60.1\"}"
+    },
+    {
+      "test": "40 source IPv4 clients with concurrent HTTP connections",
+      "detail": "passed"
+    },
+    {
+      "test": "wrong CA rejected; restoring CA recovers VPN",
+      "detail": "passed"
+    },
+    {
+      "test": "SSH apply from an isolated LAN controller namespace preserves access and is idempotent",
+      "detail": "passed"
+    },
+    {
+      "test": "server playbook over SSH is idempotent",
+      "detail": "passed"
+    },
+    {
+      "test": "overlapping subnet configuration rejected",
+      "detail": "passed"
+    },
+    {
+      "test": "incorrect pinned package checksum rejected",
+      "detail": "passed"
+    },
+    {
+      "test": "keep_dhcp management mode does not serve DHCP on existing performer/home LAN",
+      "detail": "passed"
+    },
+    {
+      "test": "unconfirmed activation restores original network files/services and reboots",
+      "detail": "passed"
+    }
+  ]
+}

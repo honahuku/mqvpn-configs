@@ -1,0 +1,16 @@
+WARNING: PATH altered to include /home/honahuku/.local/share/ansible-dev/venv/bin, /home/honahuku/.local/share/ansible-dev/venv/bin :: This is usually a sign of broken local setup, which can cause unexpected behaviors.
+
+Passed: 0 failure(s), 0 warning(s) in 41 files processed of 61 encountered. Last profile that met the validation criteria was 'production'.
+
+playbook: bootstrap.yml
+
+playbook: connect.yml
+
+playbook: server.yml
+
+playbook: gateway.yml
+
+playbook: activate-gateway.yml
+
+playbook: site.yml
+Python and shell syntax passed
