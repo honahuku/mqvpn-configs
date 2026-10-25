@@ -1,0 +1,5 @@
+pre-commit:
+  commands:
+    trufflehog:
+      glob: "*"
+      run: trufflehog filesystem {staged_files} --results=verified,unknown --exclude-detectors=Lob --fail --no-update --no-color

@@ -12,6 +12,7 @@ ansible-lint --offline
 for play in bootstrap connect server gateway activate-gateway site; do
     ansible-playbook -i inventory/hosts.example.yml "$play.yml" --syntax-check
 done
+ansible-playbook -i localhost, tests/profiles.yml
 python3 - <<'PY'
 import ast
 from pathlib import Path

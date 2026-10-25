@@ -20,6 +20,7 @@ event_guest_down_mbit: 8
 event_guest_up_mbit: 1
 event_total_up_mbit: 15
 event_venue_enabled: false
+event_default_profile: auto
 event_server_admin_cidrs: []
 event_gateway_admin_cidrs: [192.168.50.10/32]
 event_server_wan: ''

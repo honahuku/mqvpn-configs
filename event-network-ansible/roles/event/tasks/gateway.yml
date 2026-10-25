@@ -23,11 +23,13 @@
       - item.path is not defined or (item.path is match('^[a-zA-Z0-9_.:+/-]+$') and 'REPLACE' not in item.path)
   loop: "{{ event_links }}"
 
+- name: Resolve uplink profile policy
+  ansible.builtin.import_tasks: profiles.yml
+
 - name: Derive interface names
   ansible.builtin.set_fact:
     event_dj_if: "{{ (event_links | selectattr('role', 'equalto', 'performer') | first).name }}"
     event_guest_if: "{{ (event_links | selectattr('role', 'equalto', 'guest') | first).name }}"
-    event_mobile_ifs: "{{ event_links | selectattr('role', 'equalto', 'mobile') | map(attribute='name') | list }}"
     event_mgmt_ifs: "{{ event_links | selectattr('role', 'in', ['performer', 'management']) | map(attribute='name') | list }}"
     event_performer_dhcp_enabled: "{{ not ((event_links | selectattr('role', 'equalto', 'performer') | first).keep_dhcp | default(false)) }}"
 
@@ -36,6 +38,7 @@
     that:
       - event_venue_ssid | default('') | length > 0
       - event_venue_ssid | default('') | length <= 32
+      - not (event_venue_ssid | default('')).startswith('REPLACE_')
       - event_venue_psk | default('') | length == 0 or 8 <= event_venue_psk | length <= 63
   when: event_venue_enabled
   no_log: true
@@ -124,6 +127,16 @@
     dest: /etc/mqvpn/ca.crt
     mode: '0644'
 
+- name: Install automatic multipath profile
+  ansible.builtin.template:
+    src: client.conf.j2
+    dest: /etc/mqvpn/client-auto.conf
+    mode: '0600'
+  vars:
+    event_profile_paths: "{{ event_auto_ifs }}"
+  no_log: true
+  diff: false
+
 - name: Install mobile profile
   ansible.builtin.template:
     src: client.conf.j2
@@ -134,7 +147,7 @@
   no_log: true
   diff: false
 
-- name: Install venue emergency profile
+- name: Install venue-only fallback profile
   ansible.builtin.template:
     src: client.conf.j2
     dest: /etc/mqvpn/client-venue.conf
@@ -151,9 +164,9 @@
     state: absent
   when: not event_venue_enabled
 
-- name: Select mobile profile by inventory policy
+- name: Select default profile by inventory policy
   ansible.builtin.file:
-    src: /etc/mqvpn/client-mobile.conf
+    src: "/etc/mqvpn/client-{{ event_selected_profile }}.conf"
     dest: /etc/mqvpn/event-client.conf
     state: link
 

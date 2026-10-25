@@ -32,6 +32,14 @@ SSH再起動試験では、コンテナ再起動時に仮想NICを復元する�
 
 ## 結果
 
+### 3回線を通常利用する設定の追加検証
+
+`tests/profiles.yml` はネットワークやサービスを変更せず、本番と同じプロファイル選択タスクと設定テンプレートを使います。3回線の `auto`、会場未設定時の2回線の `auto`、携帯のみ・会場のみの選択、不明なプロファイルと無効な会場プロファイルの拒否を検査します。実行コマンドは `ansible-playbook -i localhost, tests/profiles.yml` です。
+
+今回の実行は `ok=31 changed=0 failed=0 rescued=2` でした。`rescued=2` は不正入力の拒否を期待したテストです。3本の実トランスポート接続・断復帰は今回未実行です。以下のDocker結果は、この変更前の携帯2回線構成の証跡として保持します。実機への適用前に、3回線の接続と各回線の断復帰を検証します。
+
+### 変更前のDocker検証
+
 静的検査はyamllint、ansible-lint、6 Playbookのsyntax-check、Python・shell構文検査が成功しました。出力は [lint.txt](tests/evidence/2026-10-25/lint.txt) です。 既存の実行ラッパーにより、ansible-lintからPATH追加の警告が1件出ます。呼び出す3ツールはいずれも同じ既存venvへのシンボリックリンクであり、そのvenvのパスが追加されています。検査ルールの失敗・警告は0件です。
 
 表1: 統合試験23項目の結果（[生データ](tests/evidence/2026-10-25/latest.json)）

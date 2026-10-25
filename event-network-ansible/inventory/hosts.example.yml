@@ -24,9 +24,12 @@ all:
             - {name: guestlan, role: guest, mac: 'REPLACE_USB_LAN_MAC'}
             - {name: povo, role: mobile, path: 'REPLACE_PIXEL_USB_ID_PATH', metric: 100}
             - {name: softbank, role: mobile, path: 'REPLACE_809SH_USB_ID_PATH', metric: 200}
-          # Optional fifth link: venue Wi-Fi, only used by the emergency profile.
-          # - {name: venue, role: venue, mac: 'REPLACE_WIFI_MAC', metric: 900}
-          event_venue_enabled: false
+            - {name: venue, role: venue, mac: 'REPLACE_WIFI_MAC', metric: 900}
+          # Route metrics affect host traffic, not mqvpn's per-path preference.
+          event_venue_enabled: true
+          event_venue_ssid: REPLACE_VENUE_SSID
+          # event_venue_psk: use Ansible Vault for a WPA-PSK network; omit for open Wi-Fi.
+          event_default_profile: auto   # auto: all enabled uplinks; mobile | venue: manual fallback
           event_guest_mode: router   # router | ap; independent of manufacturer
           # Include THIS PC's actual source IPv4 /32 during remote setup.
           event_gateway_admin_cidrs: [192.168.50.10/32, REPLACE_CONTROLLER_IPV4/32]
