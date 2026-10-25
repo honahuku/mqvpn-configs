@@ -48,4 +48,6 @@ TerraformはmqvpnのPSKやCA秘密鍵を扱いません。SSH・sudoとネット
 
 [検証専用CI](../../.github/workflows/terraform-server.yml)はTerraform 1.17.0、Google provider 8.8.1、TFLint 0.64.0を使います。fmt、backend未接続の初期化、validate、mock providerによるplanテスト、TFLintを実行します。GCPの認証情報とapplyは使いません。テストは東京・通常VM・VMサイズ・OS・Standard Tier・SSH制限と、不正なゾーン・SSH公開範囲・プロジェクト番号の拒否を対象にします。
 
-provider lockはTerraformの初期化で生成したartifactを確認して保存します。手書きのチェックサムは作りません。CIの実行結果が得られるまでは、構文・整形・providerとの適合を確認済みと扱いません。実環境のplan、クォータ、課金先、組織ポリシー、実際のSSH接続も未確認です。
+コミット `e0f15cd` の[CI](https://github.com/honahuku/mqvpn-settings/actions/runs/40155065571)でfmt、初期化、validate、mockテスト4件、TFLintが成功しました。初回のfmt指摘は修正済みです。provider lockはそのCIが生成したartifactから取得したものを保存し、手書きのチェックサムは使いません。以後のCIはlockを読み取り専用にして検証します。ActionはNode.js 24対応の公式リリースをコミットSHAで固定します。
+
+この結果は実GCPへのplan・適用や性能試験を含みません。クォータ、課金先、組織ポリシー、実際のSSH接続と通信性能は、実環境で確認します。
