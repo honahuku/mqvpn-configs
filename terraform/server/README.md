@@ -52,6 +52,6 @@ TerraformはmqvpnのPSKやCA秘密鍵を扱いません。SSH・sudoとネット
 
 CIは実環境のstateを読み書きしません。アップロードする `.terraform.lock.hcl` はproviderの依存lockで、リソースのstateである `terraform.tfstate` とは別のファイルです。
 
-コミット `e0f15cd` の[CI](https://github.com/honahuku/mqvpn-settings/actions/runs/40155065571)でfmt、初期化、validate、mockテスト4件、TFLintが成功しました。初回のfmt指摘は修正済みです。provider lockはそのCIが生成したartifactから取得したものを保存し、手書きのチェックサムは使いません。以後のCIはlockを読み取り専用にして検証します。ActionはNode.js 24対応の公式リリースをコミットSHAで固定します。
+コミット `e0f15cd` の[CI](https://github.com/honahuku/mqvpn-configs/actions/runs/40155065571)でfmt、初期化、validate、mockテスト4件、TFLintが成功しました。初回のfmt指摘は修正済みです。provider lockはそのCIが生成したartifactから取得したものを保存し、手書きのチェックサムは使いません。以後のCIはlockを読み取り専用にして検証します。ActionはNode.js 24対応の公式リリースをコミットSHAで固定します。
 
 この結果は実GCPへのplan・適用や性能試験を含みません。クォータ、課金先、組織ポリシー、実際のSSH接続と通信性能は、実環境で確認します。

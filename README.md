@@ -1,4 +1,4 @@
-# mqvpn-settings
+# mqvpn-configs
 
 povo・SoftBank・会場Wi-Fiの3回線をmqvpnの通信候補にし、DJ・VJと参加者の通信を分けるイベント用ネットワークの設定・構築手順です。配分はmqvpnに任せ、回線名による優先順位は付けません。サーバーとG3 PlusにはDebian 13 amd64を使い、管理PCからSSH経由でAnsibleを実行します。
 
