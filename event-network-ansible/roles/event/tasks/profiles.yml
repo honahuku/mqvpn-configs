@@ -1,0 +1,18 @@
+---
+- name: Validate requested uplink profile
+  ansible.builtin.assert:
+    that:
+      - event_default_profile in ['auto', 'mobile', 'venue']
+      - not event_venue_enabled or (event_links | selectattr('role', 'equalto', 'venue') | list | length == 1)
+      - event_default_profile != 'venue' or event_venue_enabled
+    fail_msg: 'Use auto, mobile, or venue; venue requires an enabled venue interface.'
+
+- name: Resolve configured uplink groups
+  ansible.builtin.set_fact:
+    event_mobile_ifs: "{{ event_links | selectattr('role', 'equalto', 'mobile') | map(attribute='name') | list }}"
+    event_venue_ifs: "{{ (event_links | selectattr('role', 'equalto', 'venue') | map(attribute='name') | list) if event_venue_enabled else [] }}"
+    event_selected_profile: "{{ event_default_profile }}"
+
+- name: Resolve all available uplinks for automatic scheduling
+  ansible.builtin.set_fact:
+    event_auto_ifs: "{{ event_mobile_ifs + event_venue_ifs }}"
