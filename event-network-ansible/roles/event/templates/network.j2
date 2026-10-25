@@ -1,0 +1,43 @@
+[Match]
+Name={{ item.name }}
+
+[Link]
+RequiredForOnline=no
+
+[Network]
+IPv6AcceptRA=no
+LinkLocalAddressing=no
+{% if item.role == 'performer' %}
+Address={{ event_performer_cidr }}
+ConfigureWithoutCarrier=yes
+{% if item.keep_dhcp | default(false) %}
+DHCP=ipv4
+
+[DHCPv4]
+ClientIdentifier=mac
+UseDNS=no
+UseNTP=no
+UseHostname=no
+RouteMetric=900
+{% endif %}
+{% elif item.role == 'guest' %}
+Address={{ event_guest_cidr }}
+ConfigureWithoutCarrier=yes
+{% else %}
+{% if item.address is defined %}
+Address={{ item.address }}
+
+[Route]
+Gateway={{ item.gateway }}
+Metric={{ item.metric | default(100) }}
+{% else %}
+DHCP=ipv4
+
+[DHCPv4]
+UseDNS=no
+UseNTP=no
+UseHostname=no
+UseDomains=no
+RouteMetric={{ item.metric | default(100) }}
+{% endif %}
+{% endif %}

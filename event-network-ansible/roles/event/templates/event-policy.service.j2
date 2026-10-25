@@ -1,0 +1,6 @@
+[Unit]
+Description=Reconcile event policy routing
+After=event-firewall.service
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/event-network/policy

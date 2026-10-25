@@ -1,0 +1,29 @@
+---
+event_root: "{{ playbook_dir }}"
+event_version: '0.18.0'
+event_port: 443
+event_tls_name: vpn.event.internal
+event_tun: mqvpn0
+event_vpn_subnet: 10.77.0.0/24
+event_scheduler: wlb_udp_pin
+event_hybrid: true
+event_tcp_max_flows: 512
+event_performer_cidr: 192.168.50.1/24
+event_performer_net: 192.168.50.0/24
+event_guest_mode: router
+event_guest_cidr: 192.168.60.1/24
+event_guest_net: 192.168.60.0/24
+event_guest_router_ip: 192.168.60.2
+event_guest_router_lan: 192.168.70.0/24
+event_dns: [1.1.1.1, 8.8.8.8]
+event_guest_down_mbit: 8
+event_guest_up_mbit: 1
+event_total_up_mbit: 15
+event_venue_enabled: false
+event_server_admin_cidrs: []
+event_gateway_admin_cidrs: [192.168.50.10/32]
+event_server_wan: ''
+# nftables also blocks these through the VPN, before any established accept.
+event_blocked_v4: [0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.168.0.0/16, 224.0.0.0/4, 240.0.0.0/4]
+# Additional measured upstream management networks (if outside the ranges above).
+event_extra_blocked_v4: []

@@ -1,0 +1,35 @@
+# Copyright (c) 2026 honahuku
+# SPDX-License-Identifier: Apache-2.0
+# Adapted for this deployment with reference to mqvpn examples; see root NOTICE.
+[Interface]
+Listen = 0.0.0.0:{{ event_port }}
+Subnet = {{ event_vpn_subnet }}
+TunName = {{ event_tun }}
+LogLevel = info
+
+[TLS]
+Cert = /etc/mqvpn/server.crt
+Key = /etc/mqvpn/server.key
+
+[Auth]
+Key = {{ event_auth_key }}
+MaxClients = 4
+
+[Multipath]
+Scheduler = {{ event_scheduler }}
+CC = bbr2
+Reinjection = {{ 'deadline' if event_hybrid else 'off' }}
+
+[Hybrid]
+Enabled = {{ event_hybrid | bool | lower }}
+TcpMaxFlows = {{ event_tcp_max_flows }}
+TcpMaxGlobalFlows = 2048
+
+[Advanced]
+UdpGso = true
+UdpGro = true
+TunOffload = true
+TunGro = true
+
+[Control]
+Listen = 127.0.0.1:9090

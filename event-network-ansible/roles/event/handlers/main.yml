@@ -1,0 +1,28 @@
+---
+- name: Apply event sysctls
+  ansible.builtin.command: sysctl -p /etc/sysctl.d/80-event-network.conf
+  changed_when: true
+  when: "'vpn_servers' in group_names"
+- name: Reload networkd
+  ansible.builtin.command: networkctl reload
+  changed_when: true
+- name: Reload event firewall
+  ansible.builtin.systemd_service:
+    name: event-firewall.service
+    state: reloaded
+- name: Reconcile gateway
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    daemon_reload: true
+    state: restarted
+  loop: [event-policy.service, event-qos.service]
+- name: Restart event DNS
+  ansible.builtin.systemd_service:
+    name: event-dns.service
+    daemon_reload: true
+    state: restarted
+- name: Restart event VPN
+  ansible.builtin.systemd_service:
+    name: event-vpn.service
+    daemon_reload: true
+    state: restarted

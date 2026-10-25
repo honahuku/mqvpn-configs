@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+case "${1:-}" in
+    mobile) target=/etc/mqvpn/client-mobile.conf ;;
+    venue) target=/etc/mqvpn/client-venue.conf ;;
+    *) echo 'Usage: sudo event-profile mobile|venue' >&2; exit 2 ;;
+esac
+[ -f "$target" ] || { echo 'Profile is not configured' >&2; exit 1; }
+ln -sfn "$target" /etc/mqvpn/event-client.conf
+systemctl restart event-vpn.service

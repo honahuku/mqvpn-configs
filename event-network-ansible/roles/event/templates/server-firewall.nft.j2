@@ -1,0 +1,30 @@
+table inet event_network {
+    set blocked_v4 { type ipv4_addr; flags interval; auto-merge;
+        elements = { {{ (event_blocked_v4 + event_extra_blocked_v4) | join(', ') }} }
+    }
+    chain input {
+        type filter hook input priority 10; policy drop;
+        iifname "lo" accept
+        ct state invalid drop
+        ct state established,related accept
+        ip saddr { {{ event_server_admin_cidrs | join(', ') }} } tcp dport {{ event_sshd_port }} accept
+        iifname "{{ event_server_wan }}" udp dport {{ event_port }} accept
+        # Preserve DHCP and IPv6 link control for provider networking; no IPv6 VPN transit.
+        iifname "{{ event_server_wan }}" udp sport 67 udp dport 68 accept
+        meta l4proto icmp accept
+        meta l4proto ipv6-icmp accept
+        udp sport 547 udp dport 546 accept
+    }
+    chain forward {
+        type filter hook forward priority 10; policy drop;
+        meta nfproto ipv6 drop
+        ct state invalid drop
+        iifname "{{ event_tun }}" ip daddr @blocked_v4 drop
+        iifname "{{ event_tun }}" ip saddr {{ event_vpn_subnet }} oifname "{{ event_server_wan }}" accept
+        iifname "{{ event_server_wan }}" oifname "{{ event_tun }}" ip daddr {{ event_vpn_subnet }} ct state established,related accept
+    }
+    chain postrouting {
+        type nat hook postrouting priority srcnat; policy accept;
+        ip saddr {{ event_vpn_subnet }} oifname "{{ event_server_wan }}" masquerade
+    }
+}

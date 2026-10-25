@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+exec 9>/run/lock/event-policy.lock
+flock 9
+# An unreachable default prevents fall-through to a cellular default when TUN is absent.
+ip -4 route replace unreachable default metric 32760 table 200
+{% for iface in [event_dj_if, event_guest_if] %}
+if ! ip -4 rule show | grep -Eq 'iif {{ iface }}( \[detached\])? lookup 200'; then
+    ip -4 rule add pref {{ 110 + loop.index }} iif {{ iface }} lookup 200
+fi
+{% endfor %}
+# dnsmasq binds its upstream socket to mqvpn0, without changing host DNS/routes.
+if ! ip -4 rule show | grep -Eq 'oif {{ event_tun }}( \[detached\])? lookup 200'; then
+    ip -4 rule add pref 113 oif {{ event_tun }} lookup 200
+fi
+if ip -4 address show dev {{ event_tun }} 2>/dev/null | grep -q 'inet '; then
+    ip -4 route replace default dev {{ event_tun }} metric 100 table 200
+fi

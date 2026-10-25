@@ -1,0 +1,11 @@
+---
+- name: Debian 13 G3 Plus event gateway
+  hosts: gateways
+  become: true
+  roles:
+    - event
+  tasks:
+    - name: Configure gateway
+      ansible.builtin.import_role:
+        name: event
+        tasks_from: gateway

@@ -1,0 +1,11 @@
+ctrl_interface=/run/wpa_supplicant
+country=JP
+update_config=0
+network={
+    ssid={{ event_venue_ssid | to_json(ensure_ascii=False) }}
+{% if event_venue_psk | default('') | length > 0 %}
+    psk={{ event_venue_psk | to_json(ensure_ascii=False) }}
+{% else %}
+    key_mgmt=NONE
+{% endif %}
+}

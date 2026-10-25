@@ -1,0 +1,8 @@
+[Unit]
+Description=Recover event routes after tunnel recreation
+[Timer]
+OnBootSec=2
+OnUnitInactiveSec=2
+AccuracySec=1
+[Install]
+WantedBy=timers.target

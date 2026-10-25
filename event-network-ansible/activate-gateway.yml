@@ -1,0 +1,42 @@
+---
+- name: Activate staged G3 network with SSH rollback
+  hosts: gateways
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Arm rollback and select networkd for next boot
+      ansible.builtin.command: /usr/local/lib/event-network/activate
+      changed_when: true
+
+    - name: Reboot into the event network
+      ansible.builtin.reboot:
+        boot_time_command: "{{ event_boot_time_command | default('cat /proc/sys/kernel/random/boot_id') }}"
+        reboot_timeout: 180
+        connect_timeout: 5
+        post_reboot_delay: 5
+
+    - name: Confirm firewall and route guards before accepting activation
+      ansible.builtin.command: "{{ item }}"
+      changed_when: false
+      loop:
+        - systemctl is-active event-firewall.service
+        - systemctl is-active systemd-networkd.service
+        - systemctl is-active event-dns.service
+        - systemctl is-active event-vpn.service
+        - systemctl is-active event-policy.timer
+        - /usr/local/lib/event-network/policy
+        - nft list table inet event_network
+
+    - name: Wait for a configured VPN tunnel before committing
+      ansible.builtin.command: "ip -j -4 address show dev {{ event_tun | default('mqvpn0') }}"
+      register: event_tunnel_check
+      changed_when: false
+      retries: 20
+      delay: 3
+      until: >-
+        event_tunnel_check.rc == 0 and
+        (event_tunnel_check.stdout | from_json | first).addr_info | length > 0
+
+    - name: Commit activation after SSH reconnect and service checks
+      ansible.builtin.command: /usr/local/lib/event-network/rollback commit
+      changed_when: true

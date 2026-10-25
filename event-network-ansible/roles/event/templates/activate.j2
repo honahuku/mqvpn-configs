@@ -1,0 +1,21 @@
+#!/bin/sh
+set -eu
+test -f /var/lib/event-network/rollback/state.json
+/usr/local/lib/event-network/firewall-load --check
+mkdir -p /var/lib/event-network
+touch /var/lib/event-network/activation-pending
+systemctl daemon-reload
+systemctl enable event-rollback.timer
+for service in NetworkManager.service networking.service dnsmasq.service; do
+    if systemctl list-unit-files "$service" --no-legend | grep -q "$service"; then
+        systemctl disable "$service"
+        systemctl mask "$service"
+    fi
+done
+mkdir -p /etc/network
+printf 'auto lo\niface lo inet loopback\n' > /etc/network/interfaces
+systemctl enable systemd-networkd.service event-firewall.service event-policy.timer event-qos.timer event-dns.service event-vpn.service
+{% if event_venue_enabled %}
+systemctl enable wpa_supplicant@{{ (event_links | selectattr('role', 'equalto', 'venue') | first).name }}.service
+{% endif %}
+echo 'Armed: reboot required; unconfirmed activation rolls back after 360 seconds.'

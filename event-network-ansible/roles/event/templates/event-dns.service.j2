@@ -1,0 +1,15 @@
+[Unit]
+Description=Event LAN DNS and DHCP
+After=systemd-networkd.service event-firewall.service
+Requires=event-firewall.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/dnsmasq --keep-in-foreground --conf-file=/etc/event-network/dnsmasq.conf
+StateDirectory=event-network
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

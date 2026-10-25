@@ -1,0 +1,5 @@
+---
+- name: Configure exit server
+  import_playbook: server.yml
+- name: Configure G3 gateway
+  import_playbook: gateway.yml

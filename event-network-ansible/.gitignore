@@ -1,0 +1,7 @@
+secrets/
+artifacts/*.deb
+inventory/hosts.yml
+inventory/group_vars/all/secrets.yml
+*.retry
+tests/results/
+logs/

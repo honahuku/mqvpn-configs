@@ -1,0 +1,189 @@
+---
+- name: Require Debian 13 amd64 and valid transport settings
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.distribution == 'Debian'
+      - ansible_facts.distribution_major_version == '13'
+      - ansible_facts.architecture == 'x86_64'
+      - event_server_ip is match('^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$')
+      - event_tls_name is match('^[a-zA-Z0-9.-]+$')
+      - event_tun is match('^[a-zA-Z0-9_-]{1,15}$')
+      - event_port | int > 0 and event_port | int < 65536
+      - event_scheduler in ['wlb', 'wlb_udp_pin', 'minrtt']
+      - event_version is match('^[0-9]+\\.[0-9]+\\.[0-9]+$')
+    fail_msg: 'Debian 13 amd64専用です。inventoryと設定値を確認してください。'
+
+- name: Load pinned artifact manifest
+  ansible.builtin.set_fact:
+    event_artifact: "{{ lookup('file', event_root + '/artifacts/manifest.json') | from_json }}"
+    event_auth_key: "{{ lookup('file', event_root + '/secrets/auth-key') | trim }}"
+  no_log: true
+
+- name: Validate addresses and prevent overlapping LANs before changing the host
+  ansible.builtin.command:
+    argv: [python3, -c, "{{ lookup('file', role_path + '/files/validate.py') }}"]
+    stdin: >-
+      {{ {'server': event_server_ip, 'gateway': ('gateways' in group_names),
+          'dns': event_dns, 'flows': event_tcp_max_flows,
+          'blocked': event_blocked_v4 + event_extra_blocked_v4,
+          'admins': (event_gateway_admin_cidrs if 'gateways' in group_names else event_server_admin_cidrs),
+          'nets': [event_performer_net, event_guest_net, event_guest_router_lan, event_vpn_subnet],
+          'addresses': [event_performer_cidr, event_guest_cidr],
+          'router': event_guest_router_ip, 'links': event_links | default([])} | to_json }}
+  changed_when: false
+  check_mode: false
+
+- name: Read controller address from the SSH session before installing firewall
+  ansible.builtin.command: sh -c 'printf "%s" "$SSH_CONNECTION"'
+  become: false
+  register: event_ssh_connection
+  changed_when: false
+  check_mode: false
+
+- name: Verify current controller is included in management CIDRs
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - >-
+        import ipaddress,json,sys;
+        c=json.load(sys.stdin);
+        assert any(ipaddress.ip_address(c['source']) in ipaddress.ip_network(n,strict=False)
+        for n in c['networks']), 'Current SSH source is missing from management CIDRs'
+    stdin: >-
+      {{ {'source': event_ssh_connection.stdout.split()[0],
+          'networks': (event_gateway_admin_cidrs if 'gateways' in group_names else event_server_admin_cidrs)} | to_json }}
+  when: event_ssh_connection.stdout | length > 0
+  changed_when: false
+  check_mode: false
+
+- name: Preserve the actual SSH daemon port including NAT or jump-host setups
+  ansible.builtin.set_fact:
+    event_sshd_port: >-
+      {{ (event_ssh_connection.stdout.split()[3] | int)
+         if event_ssh_connection.stdout | length > 0 else (event_ssh_port | default(22) | int) }}
+
+- name: Validate release lock and authentication key
+  ansible.builtin.assert:
+    that:
+      - event_artifact.version == event_version
+      - event_artifact.sha256 is match('^[0-9a-f]{64}$')
+      - event_auth_key is match('^[A-Za-z0-9+/]{43}=$')
+  no_log: true
+
+- name: Install base packages
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - openssl
+      - nftables
+      - iptables
+      - iproute2
+      - python3
+      - python3-apt
+      - xz-utils
+      - procps
+      - iputils-ping
+      - ethtool
+      - tcpdump
+      - openssh-server
+      - sudo
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+    install_recommends: false
+
+- name: Create event directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "{{ item.mode }}"
+  loop:
+    - {path: /etc/mqvpn, mode: '0700'}
+    - {path: /etc/event-network, mode: '0700'}
+    - {path: /var/cache/event-network, mode: '0755'}
+    - {path: /usr/local/lib/event-network, mode: '0755'}
+
+- name: Ensure Linux TUN device directory exists
+  ansible.builtin.file:
+    path: /dev/net
+    state: directory
+    mode: '0755'
+
+- name: Ensure Linux TUN character device exists
+  ansible.builtin.command: mknod /dev/net/tun c 10 200
+  args:
+    creates: /dev/net/tun
+
+- name: Recreate TUN device on subsequent boots
+  ansible.builtin.copy:
+    dest: /etc/tmpfiles.d/event-network.conf
+    mode: '0644'
+    content: |
+      d /dev/net 0755 root root -
+      c /dev/net/tun 0600 root root - 10:200
+
+- name: Copy pinned mqvpn package from controller
+  ansible.builtin.copy:
+    src: "{{ event_root }}/artifacts/mqvpn_{{ event_version }}_amd64.deb"
+    dest: /var/cache/event-network/mqvpn.deb
+    mode: '0644'
+
+- name: Verify target artifact SHA256
+  ansible.builtin.stat:
+    path: /var/cache/event-network/mqvpn.deb
+    checksum_algorithm: sha256
+  register: event_deb
+
+- name: Reject altered package
+  ansible.builtin.assert:
+    that: event_deb.stat.checksum == event_artifact.sha256
+
+- name: Install pinned mqvpn
+  ansible.builtin.apt:
+    deb: /var/cache/event-network/mqvpn.deb
+    state: present
+
+- name: Configure forwarding and loose reverse-path checking
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/80-event-network.conf
+    mode: '0644'
+    content: |
+      net.ipv4.ip_forward=1
+      net.ipv4.conf.all.rp_filter=2
+      net.ipv4.conf.default.rp_filter=2
+      net.ipv6.conf.all.forwarding=0
+  notify: Apply event sysctls
+
+- name: Apply kernel configuration before role-specific networking
+  ansible.builtin.meta: flush_handlers
+
+- name: Install atomic firewall loader
+  ansible.builtin.copy:
+    src: firewall-load
+    dest: /usr/local/lib/event-network/firewall-load
+    mode: '0755'
+
+- name: Install firewall unit
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/event-firewall.service
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Event network firewall
+      Before=network-pre.target event-vpn.service event-dns.service
+      Wants=network-pre.target
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      ExecStart=/usr/local/lib/event-network/firewall-load
+      ExecReload=/usr/local/lib/event-network/firewall-load
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Install diagnostic script
+  ansible.builtin.copy:
+    src: diagnose
+    dest: /usr/local/sbin/event-diagnose
+    mode: '0755'

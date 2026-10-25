@@ -1,0 +1,8 @@
+[Unit]
+Description=Recover traffic control after link recreation
+[Timer]
+OnBootSec=2
+OnUnitInactiveSec=3
+AccuracySec=1
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,14 @@
+#!/bin/sh
+set -u
+date -Is
+cat /etc/os-release
+ip -br address
+ip -4 route show table all
+ip -4 rule
+systemctl --no-pager --full status event-vpn event-firewall event-dns event-policy.timer event-qos.timer 2>&1 || true
+nft list table inet event_network
+for i in /sys/class/net/*; do
+    n=${i##*/}
+    tc -s qdisc show dev "$n" 2>/dev/null || true
+done
+journalctl -u event-vpn -n 50 --no-pager

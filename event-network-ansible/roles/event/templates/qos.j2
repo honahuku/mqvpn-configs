@@ -1,0 +1,22 @@
+#!/bin/sh
+set -eu
+# Reconcile only when interface was recreated or configuration changed.
+mkdir -p /run/event-network
+if ip link show {{ event_guest_if }} >/dev/null 2>&1; then
+    if ! tc class show dev {{ event_guest_if }} | grep -q 'htb 1:10'; then
+        tc qdisc replace dev {{ event_guest_if }} root handle 1: htb default 10
+        tc class replace dev {{ event_guest_if }} parent 1: classid 1:10 htb rate {{ event_guest_down_mbit }}mbit ceil {{ event_guest_down_mbit }}mbit
+        tc qdisc replace dev {{ event_guest_if }} parent 1:10 handle 10: fq_codel
+    fi
+fi
+if ip link show {{ event_tun }} >/dev/null 2>&1; then
+    if ! tc class show dev {{ event_tun }} | grep -q 'htb 1:20'; then
+        tc qdisc replace dev {{ event_tun }} root handle 1: htb default 10
+        tc class replace dev {{ event_tun }} parent 1: classid 1:1 htb rate {{ event_total_up_mbit }}mbit ceil {{ event_total_up_mbit }}mbit
+        tc class replace dev {{ event_tun }} parent 1:1 classid 1:10 htb rate {{ event_total_up_mbit | int - event_guest_up_mbit | int }}mbit ceil {{ event_total_up_mbit }}mbit prio 0
+        tc class replace dev {{ event_tun }} parent 1:1 classid 1:20 htb rate {{ event_guest_up_mbit }}mbit ceil {{ event_guest_up_mbit }}mbit prio 1
+        tc qdisc replace dev {{ event_tun }} parent 1:10 handle 10: fq_codel
+        tc qdisc replace dev {{ event_tun }} parent 1:20 handle 20: fq_codel
+        tc filter replace dev {{ event_tun }} parent 1: protocol ip prio 1 handle 0x20 fw classid 1:20
+    fi
+fi

@@ -1,0 +1,23 @@
+# Copyright (c) 2026 honahuku
+# SPDX-License-Identifier: Apache-2.0
+# Adapted for this deployment with reference to mqvpn examples; see root NOTICE.
+[Unit]
+Description=Event mqvpn exit server
+Wants=network-online.target
+After=network-online.target event-firewall.service
+Requires=event-firewall.service
+StartLimitIntervalSec=0
+
+[Service]
+ExecStart=/usr/bin/mqvpn --config /etc/mqvpn/server.conf
+Restart=always
+RestartSec=5
+UMask=0077
+NoNewPrivileges=yes
+ProtectHome=yes
+ProtectSystem=strict
+PrivateTmp=yes
+ReadWritePaths=/dev/net/tun
+
+[Install]
+WantedBy=multi-user.target

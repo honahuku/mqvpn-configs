@@ -1,0 +1,26 @@
+bind-dynamic
+interface={{ event_dj_if }}
+interface={{ event_guest_if }}
+except-interface=lo
+no-resolv
+no-poll
+domain-needed
+bogus-priv
+stop-dns-rebind
+{% for dns in event_dns %}
+server={{ dns }}@{{ event_tun }}
+{% endfor %}
+address=/web.setting/0.0.0.0
+cache-size=1000
+dhcp-authoritative
+dhcp-leasefile=/var/lib/event-network/leases/dnsmasq.leases
+{% if event_performer_dhcp_enabled %}
+dhcp-range=set:dj,{{ event_performer_net.split('/')[0].rsplit('.', 1)[0] }}.100,{{ event_performer_net.split('/')[0].rsplit('.', 1)[0] }}.199,255.255.255.0,8h
+dhcp-option=tag:dj,option:router,{{ event_performer_cidr.split('/')[0] }}
+dhcp-option=tag:dj,option:dns-server,{{ event_performer_cidr.split('/')[0] }}
+{% endif %}
+{% if event_guest_mode == 'ap' %}
+dhcp-range=set:guest,{{ event_guest_net.split('/')[0].rsplit('.', 1)[0] }}.100,{{ event_guest_net.split('/')[0].rsplit('.', 1)[0] }}.229,255.255.255.0,8h
+dhcp-option=tag:guest,option:router,{{ event_guest_cidr.split('/')[0] }}
+dhcp-option=tag:guest,option:dns-server,{{ event_guest_cidr.split('/')[0] }}
+{% endif %}

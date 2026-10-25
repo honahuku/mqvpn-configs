@@ -1,0 +1,25 @@
+# Copyright (c) 2026 honahuku
+# SPDX-License-Identifier: Apache-2.0
+# Adapted for this deployment with reference to mqvpn examples; see root NOTICE.
+[Unit]
+Description=Event mqvpn mobile gateway
+Wants=systemd-networkd.service event-policy.timer event-qos.timer
+After=network.target systemd-networkd.service event-firewall.service event-policy.service
+Requires=event-firewall.service
+StartLimitIntervalSec=0
+
+[Service]
+Environment=SSL_CERT_FILE=/etc/mqvpn/ca.crt
+ExecStartPre=/usr/local/lib/event-network/policy
+ExecStart=/usr/bin/mqvpn --config /etc/mqvpn/event-client.conf
+Restart=always
+RestartSec=5
+UMask=0077
+NoNewPrivileges=yes
+ProtectHome=yes
+ProtectSystem=strict
+PrivateTmp=yes
+ReadWritePaths=/dev/net/tun /run/lock
+
+[Install]
+WantedBy=multi-user.target

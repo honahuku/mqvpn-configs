@@ -1,0 +1,37 @@
+# Copyright (c) 2026 honahuku
+# SPDX-License-Identifier: Apache-2.0
+# Adapted for this deployment with reference to mqvpn examples; see root NOTICE.
+[Server]
+Address = {{ event_server_ip }}:{{ event_port }}
+ServerName = {{ event_tls_name }}
+Insecure = false
+
+[Auth]
+Key = {{ event_auth_key }}
+
+[Interface]
+TunName = {{ event_tun }}
+LogLevel = info
+ManageRoutes = false
+KillSwitch = false
+Reconnect = true
+ReconnectInterval = 5
+
+[Multipath]
+Scheduler = {{ event_scheduler }}
+CC = bbr2
+Reinjection = {{ 'deadline' if event_hybrid else 'off' }}
+{% for iface in event_profile_paths %}
+Path = {{ iface }}
+{% endfor %}
+
+[Hybrid]
+Enabled = {{ event_hybrid | bool | lower }}
+Tcp = auto
+TcpMaxFlows = {{ event_tcp_max_flows }}
+
+[Advanced]
+UdpGso = true
+UdpGro = true
+TunOffload = true
+TunGro = true

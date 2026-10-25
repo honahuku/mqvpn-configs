@@ -1,0 +1,226 @@
+---
+- name: Validate gateway topology
+  ansible.builtin.assert:
+    that:
+      - event_guest_mode in ['router', 'ap']
+      - event_links | selectattr('role', 'equalto', 'performer') | list | length == 1
+      - event_links | selectattr('role', 'equalto', 'guest') | list | length == 1
+      - event_links | selectattr('role', 'equalto', 'mobile') | list | length == 2
+      - not event_venue_enabled or (event_links | selectattr('role', 'equalto', 'venue') | list | length == 1)
+      - event_links | map(attribute='name') | unique | length == event_links | length
+      - event_guest_down_mbit | int > 0
+      - event_guest_up_mbit | int > 0
+      - event_total_up_mbit | int > event_guest_up_mbit | int
+      - event_gateway_admin_cidrs | length > 0
+
+- name: Validate device matches
+  ansible.builtin.assert:
+    that:
+      - item.name is match('^[a-zA-Z0-9_-]{1,15}$')
+      - item.role in ['performer', 'guest', 'mobile', 'venue', 'management']
+      - (item.mac is defined) != (item.path is defined)
+      - item.mac is not defined or item.mac is match('^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$')
+      - item.path is not defined or (item.path is match('^[a-zA-Z0-9_.:+/-]+$') and 'REPLACE' not in item.path)
+  loop: "{{ event_links }}"
+
+- name: Derive interface names
+  ansible.builtin.set_fact:
+    event_dj_if: "{{ (event_links | selectattr('role', 'equalto', 'performer') | first).name }}"
+    event_guest_if: "{{ (event_links | selectattr('role', 'equalto', 'guest') | first).name }}"
+    event_mobile_ifs: "{{ event_links | selectattr('role', 'equalto', 'mobile') | map(attribute='name') | list }}"
+    event_mgmt_ifs: "{{ event_links | selectattr('role', 'in', ['performer', 'management']) | map(attribute='name') | list }}"
+    event_performer_dhcp_enabled: "{{ not ((event_links | selectattr('role', 'equalto', 'performer') | first).keep_dhcp | default(false)) }}"
+
+- name: Validate optional venue credentials
+  ansible.builtin.assert:
+    that:
+      - event_venue_ssid | default('') | length > 0
+      - event_venue_ssid | default('') | length <= 32
+      - event_venue_psk | default('') | length == 0 or 8 <= event_venue_psk | length <= 63
+  when: event_venue_enabled
+  no_log: true
+
+- name: Install rollback program
+  ansible.builtin.copy:
+    src: rollback.py
+    dest: /usr/local/lib/event-network/rollback
+    mode: '0755'
+
+- name: Snapshot original networking once before staging changes
+  ansible.builtin.command: /usr/local/lib/event-network/rollback snapshot
+  args:
+    creates: /var/lib/event-network/rollback/state.json
+
+- name: Detect standard Debian deb822 sources
+  ansible.builtin.stat:
+    path: /etc/apt/sources.list.d/debian.sources
+  register: event_sources
+
+- name: Enable firmware component while retaining Debian's existing signing key
+  ansible.builtin.replace:
+    path: /etc/apt/sources.list.d/debian.sources
+    regexp: '^(Components: (?!.*\bnon-free-firmware\b).*)$'
+    replace: '\1 non-free-firmware'
+  when: event_sources.stat.exists
+
+- name: Enable firmware on legacy Debian source lists
+  ansible.builtin.replace:
+    path: /etc/apt/sources.list
+    regexp: '^(deb\s+.*\btrixie(?:-updates|-security)?\s+main(?!.*\bnon-free-firmware\b).*)$'
+    replace: '\1 non-free-firmware'
+  when: not event_sources.stat.exists
+
+- name: Install gateway packages
+  ansible.builtin.apt:
+    name: [systemd, udev, dnsmasq-base, wpasupplicant, iw, firmware-realtek]
+    state: present
+    install_recommends: false
+    update_cache: true
+    cache_valid_time: 0
+
+- name: Create configuration directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop: [/etc/systemd/network, /etc/wpa_supplicant]
+
+- name: Stage persistent device identity
+  ansible.builtin.template:
+    src: link.j2
+    dest: "/etc/systemd/network/10-event-{{ item.name }}.link"
+    mode: '0644'
+  loop: "{{ event_links }}"
+
+- name: Configure managed network links
+  ansible.builtin.template:
+    src: network.j2
+    dest: "/etc/systemd/network/10-event-{{ item.name }}.network"
+    mode: '0644'
+  loop: "{{ event_links }}"
+
+- name: Install independent firewall
+  ansible.builtin.template:
+    src: gateway-firewall.nft.j2
+    dest: /etc/event-network/firewall.nft
+    mode: '0600'
+
+- name: Install gateway helper programs
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/usr/local/lib/event-network/{{ item }}"
+    mode: '0755'
+  loop: [policy, qos, profile]
+
+- name: Expose profile command
+  ansible.builtin.file:
+    src: /usr/local/lib/event-network/profile
+    dest: /usr/local/sbin/event-profile
+    state: link
+
+- name: Install gateway CA without altering system-wide trust
+  ansible.builtin.copy:
+    src: "{{ event_root }}/secrets/ca.crt"
+    dest: /etc/mqvpn/ca.crt
+    mode: '0644'
+
+- name: Install mobile profile
+  ansible.builtin.template:
+    src: client.conf.j2
+    dest: /etc/mqvpn/client-mobile.conf
+    mode: '0600'
+  vars:
+    event_profile_paths: "{{ event_mobile_ifs }}"
+  no_log: true
+  diff: false
+
+- name: Install venue emergency profile
+  ansible.builtin.template:
+    src: client.conf.j2
+    dest: /etc/mqvpn/client-venue.conf
+    mode: '0600'
+  vars:
+    event_profile_paths: "{{ event_links | selectattr('role', 'equalto', 'venue') | map(attribute='name') | list }}"
+  when: event_venue_enabled
+  no_log: true
+  diff: false
+
+- name: Remove disabled venue profile
+  ansible.builtin.file:
+    path: /etc/mqvpn/client-venue.conf
+    state: absent
+  when: not event_venue_enabled
+
+- name: Select mobile profile by inventory policy
+  ansible.builtin.file:
+    src: /etc/mqvpn/client-mobile.conf
+    dest: /etc/mqvpn/event-client.conf
+    state: link
+
+- name: Install DNS and DHCP configuration
+  ansible.builtin.template:
+    src: dnsmasq.conf.j2
+    dest: /etc/event-network/dnsmasq.conf
+    mode: '0644'
+    validate: '/usr/sbin/dnsmasq --test --conf-file=%s'
+
+- name: Create writable lease directory for dnsmasq privilege drop
+  ansible.builtin.file:
+    path: /var/lib/event-network/leases
+    state: directory
+    owner: nobody
+    group: nogroup
+    mode: '0750'
+
+- name: Install gateway units
+  ansible.builtin.template:
+    src: "{{ 'gateway-' if item == 'event-vpn.service' else '' }}{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    mode: '0644'
+  loop: [event-vpn.service, event-dns.service, event-policy.service, event-policy.timer, event-qos.service, event-qos.timer]
+
+- name: Optional Wi-Fi credentials
+  ansible.builtin.template:
+    src: wpa.conf.j2
+    dest: "/etc/wpa_supplicant/wpa_supplicant-{{ (event_links | selectattr('role', 'equalto', 'venue') | first).name }}.conf"
+    mode: '0600'
+  when: event_venue_enabled
+  no_log: true
+  diff: false
+
+- name: Stage rollback timer
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.name }}"
+    mode: '0644'
+    content: "{{ item.content }}"
+  loop:
+    - name: event-rollback.service
+      content: |
+        [Unit]
+        Description=Restore networking if remote activation is not confirmed
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/lib/event-network/rollback restore
+    - name: event-rollback.timer
+      content: |
+        [Unit]
+        Description=Event network activation rollback deadline
+        [Timer]
+        OnBootSec=360
+        AccuracySec=1
+        [Install]
+        WantedBy=timers.target
+
+- name: Stage activation program
+  ansible.builtin.template:
+    src: activate.j2
+    dest: /usr/local/lib/event-network/activate
+    mode: '0755'
+
+- name: Report staged gateway configuration
+  ansible.builtin.debug:
+    msg: 'Staged only. Run activate-gateway.yml to hand over networking and reboot with automatic rollback.'
+
+- name: Validate staged firewall in the real kernel without applying it
+  ansible.builtin.command: /usr/local/lib/event-network/firewall-load --check
+  changed_when: false

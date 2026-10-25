@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+# The delete and replacement occur in one nft transaction. Never flush ruleset.
+tmp=$(mktemp)
+trap 'rm -f "$tmp"' EXIT
+if nft list table inet event_network >/dev/null 2>&1; then
+    echo 'delete table inet event_network' > "$tmp"
+fi
+cat /etc/event-network/firewall.nft >> "$tmp"
+nft --check --file "$tmp"
+if [ "${1:-}" != --check ]; then
+    nft --file "$tmp"
+fi

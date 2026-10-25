@@ -1,0 +1,6 @@
+[Unit]
+Description=Reconcile event traffic control
+After=event-policy.service
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/event-network/qos

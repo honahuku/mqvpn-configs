@@ -1,0 +1,31 @@
+---
+- name: Check SSH and sudo and discover the hardware without network changes
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Confirm privilege and Python availability
+      ansible.builtin.raw: 'id -u; command -v python3; cat /etc/os-release'
+      changed_when: false
+
+    - name: Gather network inventory
+      ansible.builtin.setup:
+        gather_subset: [min, network]
+
+    - name: Read network device identity
+      ansible.builtin.shell: |
+        set -o pipefail
+        ip -br address
+        ip -4 route
+        for p in /sys/class/net/*; do
+          echo "### ${p##*/}"
+          udevadm info --query=property --path="$p" | sed -n '/^ID_PATH=/p;/^ID_NET_DRIVER=/p'
+        done
+      args:
+        executable: /bin/bash
+      changed_when: false
+      register: event_discovery
+
+    - name: Show hardware identities for inventory configuration
+      ansible.builtin.debug:
+        var: event_discovery.stdout_lines

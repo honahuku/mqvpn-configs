@@ -1,0 +1,60 @@
+---
+- name: Validate server management and WAN
+  ansible.builtin.assert:
+    that:
+      - event_server_wan is match('^[a-zA-Z0-9_-]{1,15}$')
+      - event_server_admin_cidrs | length > 0
+
+- name: Disable upstream server unit that also owns iptables NAT
+  ansible.builtin.systemd_service:
+    name: mqvpn-server.service
+    enabled: false
+    state: stopped
+
+- name: Install TLS files
+  ansible.builtin.copy:
+    src: "{{ event_root }}/secrets/{{ item }}"
+    dest: "/etc/mqvpn/{{ item }}"
+    mode: '0600'
+  loop: [server.key, server.crt]
+  no_log: true
+  notify: Restart event VPN
+
+- name: Install server configuration
+  ansible.builtin.template:
+    src: server.conf.j2
+    dest: /etc/mqvpn/server.conf
+    mode: '0600'
+  no_log: true
+  diff: false
+  notify: Restart event VPN
+
+- name: Install server firewall
+  ansible.builtin.template:
+    src: server-firewall.nft.j2
+    dest: /etc/event-network/firewall.nft
+    mode: '0600'
+  notify: Reload event firewall
+
+- name: Install server service
+  ansible.builtin.template:
+    src: server-event-vpn.service.j2
+    dest: /etc/systemd/system/event-vpn.service
+    mode: '0644'
+  notify: Restart event VPN
+
+- name: Enable firewall before starting VPN
+  ansible.builtin.systemd_service:
+    name: event-firewall.service
+    daemon_reload: true
+    enabled: true
+    state: started
+
+- name: Apply firewall changes before VPN changes
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable exit server
+  ansible.builtin.systemd_service:
+    name: event-vpn.service
+    enabled: true
+    state: started

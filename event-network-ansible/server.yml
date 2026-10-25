@@ -1,0 +1,11 @@
+---
+- name: Debian 13 mqvpn exit server
+  hosts: vpn_servers
+  become: true
+  roles:
+    - event
+  tasks:
+    - name: Configure server
+      ansible.builtin.import_role:
+        name: event
+        tasks_from: server

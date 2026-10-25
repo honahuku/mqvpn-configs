@@ -1,0 +1,32 @@
+all:
+  vars:
+    ansible_user: eventadmin
+    ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+    ansible_port: 22
+    # eventadmin must have sudo; use --ask-become-pass if a password is needed.
+    # Set the real, fixed public IPv4 and the SSH source before applying.
+    event_server_ip: 203.0.113.20
+    event_server_admin_cidrs: [203.0.113.10/32]
+  children:
+    vpn_servers:
+      hosts:
+        exit:
+          ansible_host: 203.0.113.20
+          event_server_wan: ens3
+    gateways:
+      hosts:
+        g3:
+          ansible_host: REPLACE_G3_SSH_IP
+          # Use the G3's CURRENT reachable IP here, not the future event LAN IP.
+          # Read real Path/MAC values with scripts/discover.sh on the G3.
+          event_links:
+            - {name: djlan, role: performer, mac: 'REPLACE_LAN_MAC', keep_dhcp: true}
+            - {name: guestlan, role: guest, mac: 'REPLACE_USB_LAN_MAC'}
+            - {name: povo, role: mobile, path: 'REPLACE_PIXEL_USB_ID_PATH', metric: 100}
+            - {name: softbank, role: mobile, path: 'REPLACE_809SH_USB_ID_PATH', metric: 200}
+          # Optional fifth link: venue Wi-Fi, only used by the emergency profile.
+          # - {name: venue, role: venue, mac: 'REPLACE_WIFI_MAC', metric: 900}
+          event_venue_enabled: false
+          event_guest_mode: router   # router | ap; independent of manufacturer
+          # Include THIS PC's actual source IPv4 /32 during remote setup.
+          event_gateway_admin_cidrs: [192.168.50.10/32, REPLACE_CONTROLLER_IPV4/32]
