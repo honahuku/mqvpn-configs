@@ -2,8 +2,10 @@
 
 携帯2回線をmqvpnで束ね、DJ・VJと参加者の通信を分けるイベント用ネットワークの設定・構築手順です。サーバーとG3 PlusにはDebian 13 amd64を使い、管理PCからSSH経由でAnsibleを実行します。
 
-構築一式は [`event-network-ansible/`](event-network-ansible/) にあります。
+OS内の構築一式は [`event-network-ansible/`](event-network-ansible/) にあります。
 
+- [GCPプロジェクトのTerraform初期設定](terraform/README.md)
+- [Terraformの初回init・plan・apply手順](docs/gcp-terraform-setup.md)
 - [構成・設定・実行手順](event-network-ansible/README.md)
 - [SSHを準備した後の作業順序](event-network-ansible/HANDOFF.md)
 - [Docker検証の結果と実機で残る確認](event-network-ansible/VALIDATION.md)

@@ -1,0 +1,4 @@
+# バケット作成後にbackend.tfとして配置し、bootstrapのstateを移行する。
+terraform {
+  backend "gcs" {}
+}
