@@ -1,0 +1,7 @@
+project_id              = "REPLACE_PROJECT_ID"
+expected_project_number = "REPLACE_PROJECT_NUMBER"
+admin_ipv4_cidrs        = ["198.51.100.10/32"]
+ssh_public_key          = "REPLACE_OPENSSH_PUBLIC_KEY"
+
+zone         = "asia-northeast1-a"
+network_tier = "STANDARD"
