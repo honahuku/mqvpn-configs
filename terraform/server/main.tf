@@ -131,8 +131,8 @@ resource "google_compute_instance" "vpn" {
   metadata = {
     enable-oslogin         = "FALSE"
     block-project-ssh-keys = "TRUE"
-    serial-port-enable    = "FALSE"
-    ssh-keys              = "${var.ssh_user}:${trimspace(var.ssh_public_key)}"
+    serial-port-enable     = "FALSE"
+    ssh-keys               = "${var.ssh_user}:${trimspace(var.ssh_public_key)}"
   }
 
   # デフォルトサービスアカウントの権限を継承しないため、専用IDを使います。
