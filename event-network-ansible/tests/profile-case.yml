@@ -1,0 +1,26 @@
+---
+- name: Check the requested profile policy
+  block:
+    - name: Resolve production profile policy
+      ansible.builtin.include_tasks: ../roles/event/tasks/profiles.yml
+      vars:
+        event_venue_enabled: "{{ event_case.enabled }}"
+        event_default_profile: "{{ event_case.profile }}"
+
+    - name: Confirm valid policy and rendered uplinks
+      ansible.builtin.assert:
+        that:
+          - not (event_case.invalid | default(false))
+          - event_auto_ifs == event_case.paths
+          - event_selected_profile == event_case.selected
+          - >-
+            lookup('ansible.builtin.template', '../roles/event/templates/client.conf.j2').splitlines()
+            | select('match', '^Path = ') | list == event_case.paths | map('regex_replace', '^', 'Path = ') | list
+      vars:
+        event_profile_paths: "{{ event_auto_ifs }}"
+  rescue:
+    - name: Accept only an expected policy rejection
+      ansible.builtin.assert:
+        that:
+          - event_case.invalid | default(false)
+          - ansible_failed_task.name == 'Validate requested uplink profile'

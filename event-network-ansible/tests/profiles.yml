@@ -1,0 +1,33 @@
+---
+- name: Verify uplink selection without changing networking
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - ../roles/event/defaults/main.yml
+  vars:
+    event_server_ip: 198.18.77.10
+    event_auth_key: test-only
+    event_links:
+      - {name: povo, role: mobile}
+      - {name: softbank, role: mobile}
+      - {name: venue, role: venue}
+    event_profile_cases:
+      - {name: three uplinks by default, enabled: true, profile: auto, paths: [povo, softbank, venue], selected: auto}
+      - {name: two uplinks before venue setup, enabled: false, profile: auto, paths: [povo, softbank], selected: auto}
+      - {name: manual mobile fallback, enabled: true, profile: mobile, paths: [povo, softbank, venue], selected: mobile}
+      - {name: manual venue fallback, enabled: true, profile: venue, paths: [povo, softbank, venue], selected: venue}
+      - {name: unknown profile rejected, enabled: true, profile: unknown, invalid: true}
+      - {name: unavailable venue rejected, enabled: false, profile: venue, invalid: true}
+  tasks:
+    - name: Verify each uplink policy
+      ansible.builtin.include_tasks: profile-case.yml
+      loop: "{{ event_profile_cases }}"
+      loop_control:
+        loop_var: event_case
+        label: "{{ event_case.name }}"
+
+    - name: Verify manual selection exposes the automatic profile
+      ansible.builtin.assert:
+        that:
+          - "'auto) target=/etc/mqvpn/client-auto.conf' in lookup('ansible.builtin.file', '../roles/event/templates/profile.j2')"

@@ -1,6 +1,6 @@
 # Debian 13 イベントネットワーク
 
-20人・約40端末のイベントで、DJ・VJの通信を優先し、携帯2回線をmqvpnで会場外サーバーへ接続する構成です。**このPCからSSHで両マシンへAnsibleを実行します。** サーバー・G3の実機にはまだ適用していません。
+20人・約40端末のイベントで、DJ・VJの通信を優先し、povo・SoftBank・会場Wi-Fiの3回線をmqvpnで会場外サーバーへ接続する構成です。**このPCからSSHで両マシンへAnsibleを実行します。** サーバー・G3の実機にはまだ適用していません。
 
 要件元は[DJネットワーク](https://app.notion.com/p/honahuku/DJ-40007494944e806191c1fd925b3f764b)と本チャットです。OSは両端Debian 13 amd64、携帯はPixel 6＋所有povo、809SH＋SoftBankを想定します。AP・ルーターのメーカーには依存しません。TP-LinkとBUFFALOの調達は前提にしていません。
 
@@ -9,7 +9,7 @@
 ```text
 Pixel 6 ─USB─ povo ───────┐
 809SH ──USB─ softbank ────┤ G3 ── mqvpn ── Debian 13サーバー ── Internet
-会場Wi-Fi ─ venue（任意）─┘  ├─ djlan ── スイッチ ── DJ・VJ
+会場Wi-Fi ─── venue ──────┘  ├─ djlan ── スイッチ ── DJ・VJ
                             └─ guestlan ── 参加者ルーター／AP ── 約40端末
 ```
 
@@ -26,14 +26,16 @@ Pixel 6 ─USB─ povo ───────┐
 | 参加者の合計帯域 | 下り8Mbps、上り1Mbps。現地測定後に変更する仮値 |
 | トンネルへの上り | 全体15Mbps、出演者優先。仮値 |
 | mqvpn | **0.18.0固定**、両端 `wlb_udp_pin`、Hybrid有効、TCP上限512 |
-| 通常利用 | povo・SoftBankの2本だけ。会場Wi-Fiは自動では混ぜない |
-| 障害時 | 片回線断はmqvpnに任せる。会場Wi-Fiへの切替は管理者が実施 |
+| 通常利用 | `auto`でpovo・SoftBank・会場Wi-Fiの3本を候補にし、mqvpnが通信状態に応じて配分 |
+| 障害時 | 回線断への対応はmqvpnに任せる。必要なら管理者が携帯のみ・会場のみへ退避 |
 | VPN停止時 | 利用者LANからのインターネット転送を遮断。直接WANへ迂回しない |
 | IPv6 | 利用者LANのIPv6転送を遮断。IPv4専用の初版 |
 
 ネットワークアドレスは仮値です。携帯側、会場Wi-Fi、現在の管理LANとの重複を調べます。ルーター方式では参加者がNATでまとめられるため、G3での制御は参加者全体が単位です。AP方式では参加者IPを識別できますが、初版の帯域設定は全体上限＋フローごとのfq_codelです。**端末ごとの厳密な公平分配は実装していません。**
 
 `wlb_udp_pin`はYouTube等の内部QUICを1接続ごとに1回線へ寄せる初期案です。1本の内部QUIC接続で帯域合算する設定ではありません。実動画で比較し、必要なら両端の `event_scheduler` を変更します。HybridはTCPに作用します。受信用にクライアントのUDP複製機能を使う構成ではありません。
+
+回線名による優先順位は付けません。povoも常時候補にしますが、配分はmqvpnが評価する通信状態に従います。inventoryの `metric` はG3自身の通常ルートの優先度で、mqvpnの経路別の重みではありません。独自の品質閾値による回線除外・復帰と、Cloud Monitoring連携はMVPに含めません。
 
 ## このPCで編集する設定
 
@@ -53,6 +55,8 @@ Pixel 6 ─USB─ povo ───────┐
 | `event_links` | G3の内蔵LAN・USB-LAN・携帯USBの対応。MACまたはUSBの`ID_PATH`で指定 |
 | `event_gateway_admin_cidrs` | 管理用 `.50.10/32` と、構築中のこのPCの実際の送信元IP `/32` |
 | `event_guest_mode` | 参加者機器がルーターなら `router`、APなら `ap` |
+| `event_venue_enabled`、`event_venue_ssid` | 会場Wi-Fiを有効化し、実SSIDを記入。WPA-PSKなら `event_venue_psk` を秘密変数で指定 |
+| `event_default_profile` | 既定は `auto`。有効な全回線を通常利用。手動退避を通常設定にするなら `mobile` または `venue` |
 
 接続先ごとにユーザー・鍵・ポートが異なる場合は、ホスト直下に書いて共通値を上書きできます。SSHのProxyJump等は `ansible_ssh_common_args` に指定できます。実機情報は今は未確定なので、IP・MAC・USB識別子を捏造して埋めていません。サンプルの予約アドレスや `REPLACE_...` は実適用前の検査で拒否します。
 
@@ -103,24 +107,26 @@ scripts/manage.sh activate
 
 切替でIPが変わった場合、すぐに同じPlaybookを連打せず、ロールバックの再起動を待って元の接続先を確認します。実機の電源断・起動不能・SSH設定自体の故障まではネットワーク復元で救えません。初回は画面とキーボードを手元に置いて試します。
 
-## 会場Wi-Fiを予備として設定する場合
+## 会場Wi-Fiを通常の回線候補にする
 
-`event_links` に `role: venue` の無線IFを追加し、`event_venue_enabled: true` とSSIDを設定します。WPA-PSKならパスワードも設定し、オープンSSIDなら省略します。
+サンプルinventoryは `role: venue` の無線IFと `event_venue_enabled: true` を含みます。実際のNIC識別子とSSIDへ置き換えます。WPA-PSKならパスワードも設定し、オープンSSIDなら省略します。SSH構築時点で会場Wi-Fiをまだ使えない場合は、`event_venue_enabled: false` で携帯2本を使えます。会場で有効化して再配置・有効化します。
 
 ```yaml
 event_venue_enabled: true
 event_venue_ssid: "会場のSSID"
+event_default_profile: auto
 # event_venue_psk: "パスワード"  # Vault等で管理。オープンSSIDなら省略
 ```
 
-通常の `mobile` プロファイルにはこのIFを含めません。退避するときだけG3で実行します。
+通常の `auto` プロファイルは携帯2本と、有効化された会場Wi-Fiを含みます。会場Wi-Fiが不調なら携帯のみへ退避でき、携帯が利用できない場合は会場のみへ退避できます。復帰時は `auto` を指定します。
 
 ```sh
-sudo event-profile venue
 sudo event-profile mobile
+sudo event-profile venue
+sudo event-profile auto
 ```
 
-切替はVPNの再接続を伴います。キャプティブポータルのログインやUDP疎通は別途現地確認が必要です。再起動後も選択中のプロファイルを使いますが、Ansibleの再適用はinventoryの通常方針に合わせてmobileへ戻します。
+切替はVPNの再接続を伴います。キャプティブポータルのログインやUDP疎通は別途現地確認が必要です。再起動後も選択中のプロファイルを使いますが、Ansibleの再適用は `event_default_profile` へ戻します。通常は `auto` です。会場Wi-Fiを無効にしている間は `venue` プロファイルを選べません。
 
 ## 管理画面と利用者LANの分離
 
