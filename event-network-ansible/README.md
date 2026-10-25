@@ -1,6 +1,6 @@
 # Debian 13 イベントネットワーク
 
-20人・約40端末のイベントで、DJ・VJの通信を優先し、povo・SoftBank・会場Wi-Fiの3回線をmqvpnで会場外サーバーへ接続する構成です。**このPCからSSHで両マシンへAnsibleを実行します。** サーバー・G3の実機にはまだ適用していません。
+20人・約40端末のイベントで、DJ・VJの通信を優先し、povo・SoftBank・会場Wi-Fiの3回線をmqvpnで会場外サーバーへ接続する構成です。**このPCからSSHで両マシンへAnsibleを実行します。** 実機への適用結果と未検証事項は[VALIDATION.md](VALIDATION.md)を参照してください。
 
 要件元は[DJネットワーク](https://app.notion.com/p/honahuku/DJ-40007494944e806191c1fd925b3f764b)と本チャットです。OSは両端Debian 13 amd64、携帯はPixel 6＋所有povo、809SH＋SoftBankを想定します。AP・ルーターのメーカーには依存しません。TP-LinkとBUFFALOの調達は前提にしていません。
 

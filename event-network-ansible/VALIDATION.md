@@ -1,6 +1,6 @@
 # Debian 13構築の検証結果
 
-実施日: 2026-10-25（日本時間）。実サーバー・G3には未適用です。
+実施日: 2026-10-25（日本時間）。実サーバー・クライアントへ適用し、クライアントのネットワーク切替と再起動後のVPN接続まで確認しました。
 
 ## 目的
 
@@ -83,3 +83,27 @@ USB NIC、Pixel 6、809SH、実際のWi-Fi認証・キャプティブポータ�
 ## このPCへの追加導入
 
 **ホストに新しくインストールしたツールはありません。** 既存のAnsible関連ツール、Python、OpenSSL、Dockerを使用しました。Debianの検証依存パッケージはDocker内だけに導入し、一覧は [tests/Dockerfile](tests/Dockerfile) に残しています。検証コンテナ・ネットワークは削除し、再現用Dockerイメージは保持しています。固定mqvpn debはこの一式の `artifacts/` に同梱し、このPCにはインストールしていません。
+
+## 実機への設定配置（2026-10-25）
+
+実サーバーとG3相当のクライアントに、このPCからAnsible core 2.19.11で適用しました。OSはDebian 13.7です。実IP、NIC識別子、SSIDと認証情報はGit管理対象外のinventory・secretsに保存します。
+
+サーバーの初回適用は `ok=32 changed=18 failed=0`、再適用は `ok=29 changed=0 failed=0` でした。SSH再接続、VPN・FWの稼働と自動起動、UDP 443の待受、TUNのIPv4設定を確認しました。起動ログにはTLSセッションチケット警告が残っていますが、専用CAによるクライアント接続とVPN経由の通信は成功しました。
+
+クライアントはPixel 8と809SHのUSB接続を検出しました。内蔵LANを参加者ルーター側、USB有線LANを出演者・管理側とする設定を配置しています。`event_links[].extra_addresses`で構築中の固定管理IPを保持します。この省略可能な設定はIPv4として検証し、従来の設定を変えないことを `tests/management-address.yml` で確認しました。
+
+初回はAPTの取得元が未設定のためパッケージ導入に失敗しました。取得元修正後の `gateway.yml` は `ok=51 changed=25 failed=0 skipped=5`、再適用は `ok=51 changed=0 failed=0 skipped=4` でした。FWの構文検査とsystemdユニット検査も成功しました。会場Wi-Fiはその後IPを取得でき、認証情報を非表示のままGit除外済みsecretsへ引き継いで設定を追加しました。
+
+`event_configure_debian_sources: true` はDebian公式の取得元を未設定のホストに追加します。既存の `debian.sources` は上書きしません。実inventoryと実行ログはGitへ登録しません。
+
+この実機作業では、ローカルのuvキャッシュにAnsible coreと検査ツールを追加しました。mqvpnは接続先に導入し、このPCにはインストールしていません。
+
+### 有効化と最終確認
+
+会場Wi-Fiを含めた配置は `ok=53 changed=6 failed=0 skipped=2` でした。有効化Playbookは再起動後にPixel 8がUSB機器一覧から消えたため、VPN起動確認で停止しました。ケーブルの再接続後にNICとVPNが復帰したため、実行済みの再起動は繰り返さず、安全確認タスクから再開しました。再開結果は `ok=3 changed=1 failed=0` で、SSH・FW・DNS・経路ガード・TUNを確認してロールバックを解除しました。
+
+最終再適用は `ok=53 changed=0 failed=0 skipped=2` でした。VPNログでpovo・softbank・venueの全経路が `active` になり、VPNトンネルを指定した外部pingは `3 transmitted, 3 received, 0% packet loss`、HTTPSは `HTTP/2 200` でした。会場Wi-Fiの経路検証にはタイムアウトが発生しましたが、再試行で有効になりました。これらは接続確認であり、帯域・長時間安定性の評価ではありません。
+
+参加者ルーター側にはDHCP要求が届いていますが、router方式はルーターWANの固定IP設定を前提としており、DHCPは配布しません。ルーター側の設定とLAN経由の転送、回線断・復帰、帯域制御、管理画面遮断は実機では未検証です。PixelのUSB接続状態に起因する起動失敗も、無人復旧の合格結果には含めません。
+
+最終ログでも全経路は `active` でした。会場Wi-Fiのsrttは `2190ms` で、帯域保証の根拠にはなりません。xquicのBBR2内部計算に関する警告も残っています。通信継続は確認していますが、設定変更で解消する根拠は確認できていないため、警告を消す変更はしていません。長時間安定性は未検証です。

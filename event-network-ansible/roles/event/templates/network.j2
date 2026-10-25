@@ -7,6 +7,9 @@ RequiredForOnline=no
 [Network]
 IPv6AcceptRA=no
 LinkLocalAddressing=no
+{% for address in item.extra_addresses | default([]) %}
+Address={{ address }}
+{% endfor %}
 {% if item.role == 'performer' %}
 Address={{ event_performer_cidr }}
 ConfigureWithoutCarrier=yes

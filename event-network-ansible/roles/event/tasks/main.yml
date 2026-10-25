@@ -71,6 +71,25 @@
       - event_auth_key is match('^[A-Za-z0-9+/]{43}=$')
   no_log: true
 
+- name: Configure official Debian sources when explicitly requested
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/debian.sources
+    mode: '0644'
+    force: false
+    content: |
+      Types: deb
+      URIs: https://deb.debian.org/debian
+      Suites: trixie trixie-updates
+      Components: main non-free-firmware
+      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+      Types: deb
+      URIs: https://security.debian.org/debian-security
+      Suites: trixie-security
+      Components: main non-free-firmware
+      Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+  when: event_configure_debian_sources | default(false) | bool
+
 - name: Install base packages
   ansible.builtin.apt:
     name:

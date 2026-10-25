@@ -1,0 +1,40 @@
+---
+- name: Verify static management access survives gateway network generation
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    event_performer_cidr: 192.168.50.1/24
+    event_guest_cidr: 192.168.60.1/24
+    item:
+      name: djlan
+      role: performer
+      keep_dhcp: true
+      extra_addresses: [192.0.2.11/24]
+  tasks:
+    - name: Render performer network with a static management address
+      ansible.builtin.set_fact:
+        rendered_network: "{{ lookup('template', '../roles/event/templates/network.j2') }}"
+
+    - name: Require both event and management addresses
+      ansible.builtin.assert:
+        that:
+          - "'Address=192.0.2.11/24' in rendered_network"
+          - "'Address=192.168.50.1/24' in rendered_network"
+          - "'DHCP=ipv4' in rendered_network"
+
+    - name: Render existing configuration without optional addresses
+      ansible.builtin.set_fact:
+        legacy_network: "{{ lookup('template', '../roles/event/templates/network.j2') }}"
+      vars:
+        item:
+          name: djlan
+          role: performer
+          keep_dhcp: true
+
+    - name: Preserve existing address and DHCP behavior
+      ansible.builtin.assert:
+        that:
+          - "'Address=192.168.50.1/24' in legacy_network"
+          - "'192.0.2.11' not in legacy_network"
+          - "'DHCP=ipv4' in legacy_network"

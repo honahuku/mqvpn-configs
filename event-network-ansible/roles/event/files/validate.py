@@ -34,6 +34,8 @@ if c['gateway']:
     require(router in nets[1] and router != ipaddress.IPv4Interface(c['addresses'][1]).ip,
             'Guest router WAN address must be distinct and inside guest transit subnet')
     for entry in c['links']:
+        for address in entry.get('extra_addresses', []):
+            ipaddress.IPv4Interface(address)
         require(re.fullmatch(r'[A-Za-z0-9_-]{1,15}', entry['name']), 'Unsafe interface name')
         require(0 < int(entry.get('metric', 100)) < 65536, 'Invalid route metric')
 print('Configuration address and overlap validation passed')

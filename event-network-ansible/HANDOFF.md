@@ -1,6 +1,6 @@
 # SSH接続可能になった後の作業入口
 
-現段階の成果物はDebian 13向けPlaybookとDocker検証です。実サーバー・G3のIP、SSHユーザー、鍵、NIC識別子は未確定です。実機へはまだ接続・適用していません。
+実機への適用状況と未検証事項は[VALIDATION.md](VALIDATION.md)を参照してください。実設定はGit管理対象外のinventoryに保存しています。
 
 ユーザーが両マシンでSSHを有効にし、このPCから接続可能にしたら、接続先IP／ユーザー／鍵を `inventory/hosts.yml` に設定します。`inventory/hosts.example.yml` が記入例です。Gitクローン直後で実inventoryが無ければ、サンプルをコピーして作成します。固定debが無ければ `scripts/prepare.sh` で取得します。既存の `~/.ssh/config` を使う場合はSSHホスト別名も利用できます。秘密鍵・パスワードはチャットへ貼り付けません。
 
