@@ -1,0 +1,127 @@
+---
+- name: Restore normal gateway networking
+  hosts: gateways
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Validate normal network interface
+      ansible.builtin.assert:
+        that:
+          - event_normal_if | default('') is match('^[a-zA-Z0-9_.-]{1,15}$')
+          - event_normal_ssh_port | default(22) | int > 0
+          - event_normal_ssh_port | default(22) | int < 65536
+        fail_msg: 'event_normal_if and event_normal_ssh_port must identify the normal DHCP/SSH interface.'
+
+    - name: Stop event services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      loop:
+        - event-vpn.service
+        - event-dns.service
+        - event-policy.timer
+        - event-qos.timer
+        - event-firewall.service
+
+    - name: Stop venue uplink service
+      ansible.builtin.systemd:
+        name: "wpa_supplicant@{{ item.name }}.service"
+        state: stopped
+        enabled: false
+      loop: "{{ event_links | default([]) }}"
+      when:
+        - event_venue_enabled | default(false) | bool
+        - item.role | default('') == 'venue'
+
+    - name: Remove event network profiles
+      ansible.builtin.file:
+        path: "/etc/systemd/network/10-event-{{ item.name }}.network"
+        state: absent
+      loop: "{{ event_links | default([]) }}"
+      notify: Restart systemd-networkd
+
+    - name: Install normal DHCP network profile
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/roles/event/templates/normal-network.j2"
+        dest: /etc/systemd/network/99-normal.network
+        mode: '0644'
+      notify: Restart systemd-networkd
+
+    - name: Install normal firewall
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/roles/event/templates/normal-firewall.nft.j2"
+        dest: /etc/event-network/normal-firewall.nft
+        mode: '0600'
+      notify: Restart normal firewall
+
+    - name: Install normal firewall unit
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/roles/event/templates/normal-firewall.service.j2"
+        dest: /etc/systemd/system/normal-firewall.service
+        mode: '0644'
+      notify: Restart normal firewall
+
+    - name: Remove event forwarding settings
+      ansible.builtin.file:
+        path: /etc/sysctl.d/80-event-network.conf
+        state: absent
+
+    - name: Read forwarding sysctl values
+      ansible.builtin.command: "sysctl -n {{ item.key }}"
+      loop:
+        - {key: net.ipv4.ip_forward, value: '0'}
+        - {key: net.ipv4.conf.all.rp_filter, value: '1'}
+        - {key: net.ipv4.conf.default.rp_filter, value: '1'}
+        - {key: net.ipv6.conf.all.forwarding, value: '0'}
+      register: normal_sysctl_values
+      changed_when: false
+
+    - name: Disable forwarding immediately
+      ansible.builtin.command: "sysctl -w {{ item.item.key }}={{ item.item.value }}"
+      loop: "{{ normal_sysctl_values.results }}"
+      when: item.stdout | trim != item.item.value
+      changed_when: true
+
+    - name: Remove event traffic shaping
+      ansible.builtin.command: "tc qdisc del dev {{ item }} root"
+      loop:
+        - "{{ event_guest_if | default('') }}"
+        - "{{ event_tun | default('mqvpn0') }}"
+      when: item | length > 0
+      register: event_qdisc_delete
+      changed_when: event_qdisc_delete.rc == 0
+      failed_when: event_qdisc_delete.rc not in [0, 1, 2]
+
+    - name: Check for event firewall table
+      ansible.builtin.command: nft list table inet event_network
+      register: event_firewall_table
+      changed_when: false
+      failed_when: false
+
+    - name: Remove event firewall table
+      ansible.builtin.command: nft delete table inet event_network
+      when: event_firewall_table.rc == 0
+      register: event_firewall_delete
+      changed_when: event_firewall_delete.rc == 0
+      failed_when: event_firewall_delete.rc != 0
+
+    - name: Reload systemd units
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Enable normal firewall
+      ansible.builtin.systemd:
+        name: normal-firewall.service
+        state: started
+        enabled: true
+  handlers:
+    - name: Restart systemd-networkd
+      ansible.builtin.systemd:
+        name: systemd-networkd.service
+        state: restarted
+    - name: Restart normal firewall
+      ansible.builtin.systemd:
+        name: normal-firewall.service
+        daemon_reload: true
+        state: restarted

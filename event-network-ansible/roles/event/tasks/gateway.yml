@@ -11,7 +11,11 @@
       - event_guest_down_mbit | int > 0
       - event_guest_up_mbit | int > 0
       - event_total_up_mbit | int > event_guest_up_mbit | int
-      - event_gateway_admin_cidrs | length > 0
+      - >-
+        event_gateway_admin_cidrs | length > 0
+        or (event_links | selectattr('role', 'equalto', 'management') | list | length > 0)
+        or (event_links | selectattr('ssh_unrestricted', 'defined')
+        | selectattr('ssh_unrestricted') | list | length > 0)
 
 - name: Validate device matches
   ansible.builtin.assert:
@@ -21,6 +25,7 @@
       - (item.mac is defined) != (item.path is defined)
       - item.mac is not defined or item.mac is match('^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$')
       - item.path is not defined or (item.path is match('^[a-zA-Z0-9_.:+/-]+$') and 'REPLACE' not in item.path)
+      - item.ssh_unrestricted is not defined or item.ssh_unrestricted | type_debug == 'bool'
   loop: "{{ event_links }}"
 
 - name: Resolve uplink profile policy
@@ -31,6 +36,26 @@
     event_dj_if: "{{ (event_links | selectattr('role', 'equalto', 'performer') | first).name }}"
     event_guest_if: "{{ (event_links | selectattr('role', 'equalto', 'guest') | first).name }}"
     event_mgmt_ifs: "{{ event_links | selectattr('role', 'in', ['performer', 'management']) | map(attribute='name') | list }}"
+    event_unrestricted_ssh_ifs: >-
+      {{
+        (
+          (
+            event_links
+            | selectattr('role', 'equalto', 'management')
+            | map(attribute='name')
+            | list
+          )
+          +
+          (
+            event_links
+            | selectattr('ssh_unrestricted', 'defined')
+            | selectattr('ssh_unrestricted')
+            | map(attribute='name')
+            | list
+          )
+        )
+        | unique
+      }}
     event_performer_dhcp_enabled: "{{ not ((event_links | selectattr('role', 'equalto', 'performer') | first).keep_dhcp | default(false)) }}"
 
 - name: Validate optional venue credentials
@@ -107,6 +132,29 @@
     src: gateway-firewall.nft.j2
     dest: /etc/event-network/firewall.nft
     mode: '0600'
+
+- name: Check for normal firewall unit
+  ansible.builtin.stat:
+    path: /etc/systemd/system/normal-firewall.service
+  register: event_normal_firewall_unit
+
+- name: Disable normal firewall during event mode
+  ansible.builtin.systemd:
+    name: normal-firewall.service
+    state: stopped
+    enabled: false
+  when: event_normal_firewall_unit.stat.exists
+
+- name: Check for normal firewall table
+  ansible.builtin.command: nft list table inet normal_network
+  register: event_normal_firewall_table
+  changed_when: false
+  failed_when: false
+
+- name: Remove normal firewall table during event mode
+  ansible.builtin.command: nft delete table inet normal_network
+  when: event_normal_firewall_table.rc == 0
+  changed_when: true
 
 - name: Install gateway helper programs
   ansible.builtin.template:

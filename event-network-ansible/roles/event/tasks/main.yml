@@ -33,6 +33,30 @@
   changed_when: false
   check_mode: false
 
+- name: Derive unrestricted gateway SSH interfaces
+  ansible.builtin.set_fact:
+    event_unrestricted_ssh_ifs: >-
+      {{
+        (
+          (
+            event_links
+            | selectattr('role', 'equalto', 'management')
+            | map(attribute='name')
+            | list
+          )
+          +
+          (
+            event_links
+            | selectattr('ssh_unrestricted', 'defined')
+            | selectattr('ssh_unrestricted')
+            | map(attribute='name')
+            | list
+          )
+        )
+        | unique
+      }}
+  when: "'gateways' in group_names"
+
 - name: Read controller address from the SSH session before installing firewall
   ansible.builtin.command: sh -c 'printf "%s" "$SSH_CONNECTION"'
   become: false
@@ -53,7 +77,10 @@
     stdin: >-
       {{ {'source': event_ssh_connection.stdout.split()[0],
           'networks': (event_gateway_admin_cidrs if 'gateways' in group_names else event_server_admin_cidrs)} | to_json }}
-  when: event_ssh_connection.stdout | length > 0
+  when:
+    - event_ssh_connection.stdout | length > 0
+    - event_gateway_admin_cidrs | length > 0
+    - event_unrestricted_ssh_ifs | default([]) | length == 0
   changed_when: false
   check_mode: false
 
