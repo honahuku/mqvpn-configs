@@ -23,6 +23,8 @@ event_venue_enabled: false
 event_default_profile: auto
 event_server_admin_cidrs: []
 event_gateway_admin_cidrs: [192.168.50.10/32]
+event_normal_if: ''
+event_normal_ssh_port: 22
 event_server_wan: ''
 # nftables also blocks these through the VPN, before any established accept.
 event_blocked_v4: [0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.168.0.0/16, 224.0.0.0/4, 240.0.0.0/4]

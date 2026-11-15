@@ -12,11 +12,18 @@ table inet event_network {
         type filter hook input priority 10; policy drop;
         iifname "lo" accept
         iifname @lans meta nfproto ipv6 drop
+{% if event_unrestricted_ssh_ifs | length > 0 %}
+        iifname { {{ event_unrestricted_ssh_ifs | map('to_json') | join(', ') }} } tcp dport {{ event_sshd_port }} accept
+{% endif %}
         # These checks precede established rules, including after firewall reload.
+{% if event_gateway_admin_cidrs | length > 0 %}
         iifname @lans tcp dport {{ event_sshd_port }} ip saddr != { {{ event_gateway_admin_cidrs | join(', ') }} } drop
+{% endif %}
         ct state invalid drop
         ct state established,related accept
+{% if event_gateway_admin_cidrs | length > 0 %}
         iifname { {{ event_mgmt_ifs | map('to_json') | join(', ') }} } ip saddr { {{ event_gateway_admin_cidrs | join(', ') }} } tcp dport {{ event_sshd_port }} accept
+{% endif %}
         iifname @lans udp dport { 53, 67 } accept
         iifname @lans tcp dport 53 accept
         iifname @lans icmp type echo-request accept

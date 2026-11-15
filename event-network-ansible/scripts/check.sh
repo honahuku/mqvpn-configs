@@ -9,10 +9,11 @@ export ANSIBLE_HOME="$tmp/ansible"
 export XDG_CACHE_HOME="$tmp/cache"
 yamllint -c .yamllint .
 ansible-lint --offline
-for play in bootstrap connect server gateway activate-gateway site; do
+for play in bootstrap connect server gateway normal-gateway activate-gateway site; do
     ansible-playbook -i inventory/hosts.example.yml "$play.yml" --syntax-check
 done
 ansible-playbook -i localhost, tests/profiles.yml
+ansible-playbook -i localhost, tests/network-modes.yml
 python3 - <<'PY'
 import ast
 from pathlib import Path

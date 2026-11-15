@@ -20,8 +20,8 @@ all:
           # Use the G3's CURRENT reachable IP here, not the future event LAN IP.
           # Read real Path/MAC values with scripts/discover.sh on the G3.
           event_links:
-            - {name: djlan, role: performer, mac: 'REPLACE_LAN_MAC', keep_dhcp: true}
-            - {name: guestlan, role: guest, mac: 'REPLACE_USB_LAN_MAC'}
+            - {name: djlan, role: performer, mac: 'REPLACE_INTERNAL_LAN_MAC', keep_dhcp: true, ssh_unrestricted: true}
+            - {name: guestlan, role: guest, mac: 'REPLACE_EXTERNAL_USB_LAN_MAC'}
             - {name: povo, role: mobile, path: 'REPLACE_PIXEL_USB_ID_PATH', metric: 100}
             - {name: softbank, role: mobile, path: 'REPLACE_809SH_USB_ID_PATH', metric: 200}
             - {name: venue, role: venue, mac: 'REPLACE_WIFI_MAC', metric: 900}
@@ -31,5 +31,7 @@ all:
           # event_venue_psk: use Ansible Vault for a WPA-PSK network; omit for open Wi-Fi.
           event_default_profile: auto   # auto: all enabled uplinks; mobile | venue: manual fallback
           event_guest_mode: router   # router | ap; independent of manufacturer
-          # Include THIS PC's actual source IPv4 /32 during remote setup.
-          event_gateway_admin_cidrs: [192.168.50.10/32, REPLACE_CONTROLLER_IPV4/32]
+          # Event mode: SSH on djlan is unrestricted; guestlan remains guest-only.
+          event_gateway_admin_cidrs: [192.168.50.10/32]
+          # Normal mode uses DHCP and unrestricted SSH on this interface.
+          event_normal_if: djlan

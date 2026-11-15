@@ -87,6 +87,9 @@ scripts/prepare.sh
 scripts/manage.sh server
 scripts/manage.sh gateway
 
+# 通常利用へ戻す場合（指定NICをDHCP・通常SSHへ戻す）
+ansible-playbook -i inventory/hosts.yml normal-gateway.yml
+
 # G3のネットワーク切替と再起動。SSH再接続後に確認して確定
 scripts/manage.sh activate
 ```
@@ -97,9 +100,15 @@ scripts/manage.sh activate
 
 `activate-gateway.yml` は既存のNetworkManager／ifupdownを次回起動時に停止するよう設定し、networkd・FW・VPNを有効化して再起動します。**その後180秒以内に元のSSH接続先へ戻り、FW・DNS・ルートガード・VPNのIPv4設定を確認できた場合に確定**します。確定されなければ起動から360秒後に元のネットワーク設定・サービス有効状態を復元して再起動します。最初の切替前に採ったスナップショットへの復元で、OS全体のロールバックではありません。
 
+### 通常利用へ戻す
+
+イベントを終了して通常利用へ戻すときは `normal-gateway.yml` を実行します。`event_normal_if` に指定したNICだけをsystemd-networkdのIPv4 DHCPクライアントにし、DHCPで取得したデフォルトゲートウェイとDNSを使います。イベントVPN・参加者DHCP・イベント用転送・帯域制御を停止し、通常用FWへ切り替えます。通常用FWは指定NICからのSSHを送信元IPの制限なしで許可しますが、転送は許可しません。
+
+イベント時は、内蔵NICなど管理にも使うリンクへ `ssh_unrestricted: true` を付け、参加者用の外付けNICを `role: guest` として別に指定します。`guestlan` 自体のSSHは引き続き `event_gateway_admin_cidrs` の送信元だけに制限されます。
+
 ### G3へのSSHを切替後も維持する
 
-既存有線LANをDJ側にする場合、サンプルの `keep_dhcp: true` により、イベント用固定アドレスと**構築中のLANから取得するDHCPアドレスを併用**します。自宅ルーター側でG3のMACにDHCP予約を設定すると、SSH接続先を維持しやすくなります。G3へSSHしているこのPCのIPも `event_gateway_admin_cidrs` に含めてください。PlaybookはSSHセッションの送信元が許可範囲に入るか検査します。
+既存有線LANをDJ側にする場合、サンプルの `keep_dhcp: true` により、イベント用固定アドレスと**構築中のLANから取得するDHCPアドレスを併用**します。自宅ルーター側でG3のMACにDHCP予約を設定すると、SSH接続先を維持しやすくなります。送信元制限を使うゲスト側SSHは、G3へSSHしているこのPCのIPを `event_gateway_admin_cidrs` に含めてください。`ssh_unrestricted: true` を付けた管理NICから接続する場合は、送信元CIDRの検査を行わず、そのNICのSSHを許可します。
 
 **`keep_dhcp: true` の間はDJ側のDHCPサーバーを停止**し、自宅LANへ別のDHCPサーバーを持ち込まないようにします。会場へ移す前に、管理PCを固定IP `.50.10` で接続できることを確認し、`keep_dhcp: false` にして再配置・有効化すると、DJ側のDHCP配布が始まります。参加者側は別NICなので、AP方式のDHCPとは独立しています。
 
